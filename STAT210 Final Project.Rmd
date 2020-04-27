@@ -1,0 +1,122 @@
+---
+title: "STAT 210 Final Analytic Project"
+author: "Ben Martin"
+date: "11/29/2018"
+output: word_document
+---
+
+```{r}
+library(car);library(MASS); library(baseballDBR)
+```
+The main hypothesis for this project is that over the last 10 seasons, players with more singles, doubles, triples, home runs, and walks will score more runs. Additionally, players in the National League will score fewer runs than players in the American League. These hypotheses come from knowledge and observation of baseball and the fact that scoring runs is the end goal and the most valuable thing a player can do. The various offensive statistics listed above are good measurements of a player's offensive production which in turn lead to runs. As for the secondary hypothesis, the NL is generally considered less powerful offensively when compared to the AL. This is for a few reasons, with the main reason being that the NL does not have the designated hitter, and pitchers must bat in the lineup. Most pitchers are an easy out at the plate, so the difference of 8 hitters and a pitcher in the NL lineups vs 9 hitters in the AL lineups tends to pan out into a lot more offensive production in the AL over the course of the season.
+
+The data set used comes from the Sean Lahman baseball database, and it is a data set titled "Batting". This data set contains offensive statistics for for every player in the MLB every year from 1875 to 2017. It has 104,324 observations of 22 variables. For this project, the data was subsetted to include only data from the last 10 seasons. This was done both to cut down the massive data set, as well as to modernize the model to fit today's game of baseball better. As the game of baseball is always changing, modeling based off of the most recent 10 seasons will help improve the model's application to the modern game. In addition to including only the last 10 seasons, this analysis includes only players with at least 200 at bats in a given season. This is to further cut down the data to 3263 observations, as well as eliminate the large number of players with very few at bats and minimal offfensive statistics that skew the data. The majority of the variables are continuous, although there are a couple factor variables, team ID and league ID.
+```{r}
+dat<-read.csv(file = "Batting.csv")
+Batting<- subset(dat, yearID > 2007)
+Batting$X1B<-Batting$H-Batting$HR-Batting$X3B-Batting$X2B
+df<-subset(Batting, AB > 200)
+```
+
+The dependent variable for this model is runs scored. It is a continuous variable, with an observed minimum of 4, maximum of 137, and a mean of 55.26. A slight right skew can be seen, as most players score between 20 and 80 runs each year, but a number of outstanding performers each year will lead the league scoring over 100 runs and creating the skew.
+```{r}
+summary(df$R); hist(df$R)
+```
+The key independent variables are singles, doubles, triples, home runs, walks, and league. The data lists only total number of hits and numbers for extra base hits, so the singles variable had to be created by subtracting extra base hits from total hits. These variables were chosen as the key indpendent variables since, with the exception of league, they are the outcomes that a batter is most responsible, and best measure a batter's skill and performance without relying on things out of the batter's control. These variables are also all continuous variables, with the exception of league which is a factor with values of AL (American League) and NL (National League). Singles have a minimum of 14 and a maximum of 180, with a mean of 72.1. 
+```{r}
+summary(df$X1B); hist(df$X1B)
+```
+Doubles have a minimum of 2 and a maximum of 56, with a mean of 21.83.
+```{r}
+summary(df$X2B); hist(df$X2B)
+```
+Triples have a minimum of 0 and a maximum of 15, with a mean of 2.25.
+```{r}
+summary(df$X3B); hist(df$X3B)
+```
+Home runs have a minimum of 0 and a maximum of 59, with a mean of 13.3.
+```{r}
+summary(df$HR); hist(df$HR)
+```
+Walks have a minimum of 4 and a maximum of 143, with a mean of 35. 
+```{r}
+summary(df$BB); hist(df$BB)
+```
+As with runs scored, all of these variables seem to be right skewed. This is due to similar reasons, in that they can not take on a value below 0, and most players with at least 200 ABs will reside around the mean, with a handful of high performers each season creating the skew. 
+
+League ID has 1606 observations in the AL, and 1657 observations in the NL. This makes the data very evenly distributed between the two leagues.
+```{r}
+summary(df$lgID)
+```
+
+Also included in the model are hit by pitches, games played, at bats, strikeouts, stolen bases, and the interaction between league and sacrifice bunts. One thing that the National league tends to do more of is play "small ball", which heavily includes sacrifice bunting and this is why the interaction was included. These are all continuous variables and their summaries can be seen below:
+```{r}
+summary(df$G); summary(df$AB); summary(df$SH); summary(df$SO);summary(df$SB); summary(df$HBP)
+```
+
+A least squares multiple regression was performed to create a model for this data. The first thing to note is that that intercept for this model is both statistically insignificant, and essentially 0. This mean that if all offensive variables were equal to zero, the model predicts zero runs scored, which makes perfect sense. The variables that were statistically significant were singles, doubles, triples, home runs, league, walks, hit by pitches, games played, stolen bases, and sacrifice bunts. The coefficients for each of these variables is seen in the summary given below:
+
+```{r}
+model<- lm(R~X1B+X2B+X3B+HR+lgID+BB+HBP+G+AB+SO+SB+lgID*SH, data=df)
+summary(model)
+```
+The coefficients for the continuous variables are interpreted as the expected increase in runs scored for a player per 1 unit increase in the respective variable, all else constant. The ldIDNL coefficient is interpreted to mean that the model predicts a player in the NL to score .839 fewer runs than a player in the AL, all else constant. The substantive impact of these variables was calculated by multiplying the coefficient by the maximum observed value, giving the maximum impact of that variable in this model. This was done only for the key variables, as they have in general the highest coefficients as well as the highest maximum values, ensuring that they are the most impactful variables.
+```{r}
+.2776*(max(df$X1B)); .4859*(max(Batting$X2B)); 1.27733*(max(Batting$X3B)); .9681*(max(Batting$HR));.2453*(max(Batting$BB))
+```
+This calculation shows that home runs are the strongest predictor, with a possibility of accounting for 57 runs, with singles close behind with a maximum impact of 50 runs. 
+
+This model was used to predict how many runs Barry Bond's 2001 season would have produced. This is largely seen as one of the greatest seasons a single player has had, and one in which he set the all time single season home runs record. For comparison, Bonds scored 129 runs. The model predicts that Bonds would score 145 runs, with the prediction interval placing his season between 132 and 159 runs. 
+```{r}
+predict(model, data.frame(X1B=49, X2B=32, X3B=2, HR=73, lgID="NL", BB=177, HBP=9, G=153, AB=476, SO=93, SB=13, SH=0), interval="predict")
+```
+The model was also used to predict how many runs an AL player would score if he were to break the home runs record, while at the mean of every other variable. The model predicts this hypothetical player to score between 101 and 128 runs, with 115 being the fitted value. The biggest difference in this outcome is that although he hit more home runs, this hypothetical player walked over 100 times less. While not necessarily realistic, this hypothetical gives a good idea about how the other variables play a role in scoring runs.
+```{r}
+predict(model, data.frame(X1B=72, X2B=22, X3B=2, HR=74, lgID="AL", BB=35, HBP=9, G=119, AB=411, SO=85, SB=7, SH=2), interval="predict")
+```
+Overall, model fit statistics for the first model showed it to be a good fit. The residual standard error of 6.725 and adjusted R-squared of 92.14% prove this model to be a good fit.
+
+In order to create the component plus residuals plots, a second model was created without the interaction that was included in model1. As the interaction coefficient was insignificant anyways, this will prove to not be an issue. Looking at the component plus residuals plots, non-linearity does not seem to be an issue for the model.
+```{r}
+model2<- lm(R~X1B+X2B+X3B+HR+lgID+BB+HBP+G+AB+SO+SB, data=df)
+crPlots(model2)##non linearity
+```
+To assess for normality of the data, the influence index plot was created for this model. In addition, the outlier test was performed. Overall, there were a few influential data points, but in such a large data set this is of little concern. The outlier test came back with one outlier amond the data, again not a concern given the data set size. What is interesting about the outlier however is that it is Matt Carpenter's 2013 season. By all accounts, Carpenter had a very good year, but what stands out is that he scored 126 runs which led the league and is one of the highest run totals in recent years. The reason for Carpenter's abnormally high run total is that his team made it to the World Series and he had a group of very good hitters behind him driving him in more often than most players would score. The model predicts that Carpenter would score 102 runs with the season statistics that he had, still a very good season, but not to the tune of 126 runs.
+```{r}
+influenceIndexPlot(model, vars="Studentized")
+outlierTest(model)
+            
+predict(model, data.frame(X1B=126, X2B=55, X3B=7, HR=11, lgID="NL", BB=95, HBP=9, G=157, AB=626, SO=98, SB=3, SH=3), interval="predict")
+```
+In assessing for heteroskedasticity, the Breusch-Pagan Test was performed. This test yielded a p-value less than .05 which means the null hypothesis of homoskedasticity is rejected. The cause of this heteroskedasticity is likely due to the skewed distributions of the variables, as they are trunkated at 0 and prone to outliers. 
+```{r}
+ncvTest(model)
+```
+The next diagnostic run on the model was to look for multicollinearity. To do this, VIFs were calculated. Most of the variables don't raise any concern, however singles, games played, and especially at bats certainly did. These high VIFs are likely due to the fact that for every observed batter outcome, it also counts as an at-bat. Similarly, every event for a batter takes place when they are playing which adds to their games played. Singles is the most common outcome for most batters, which is why it has a high VIF, and it is expected that if the model dropped games played and ABs, the VIF for singles would be taken care of. 
+```{r}
+vif(model)
+```
+The final diagnostic run on this model was the Durbin-Watson test for autocorrelation. This test yielded a statistic of 2.0078, and a p-value of .85, which means that it fails to reject the null hypothesis of no autocorrelation.
+```{r}
+durbinWatsonTest(model)
+```
+
+A stepwise regression model was created based off of the first model, and it produced a model that included only statistically significant variables. The interaction between league and sacrifice bunts was dropped, as it proved insignificant in predicting runs scored. At bats and strikouts were also dropped from the model. The intercept remained insignificant, however the coefficients for the remaining variables were very similar to the first model. 
+```{r}
+step.model<- stepAIC(model, direction="both", trace=FALSE)
+summary(step.model)
+```
+Measurement error is not of great concern for this model. Each variable is an accurate representation of what the player did. The data is official MLB statistics and the nature of the variables do not cause much concern for measurement error. Omitted variables is also not of great concern, as the model inlcludes nearly every possible outcome for a batter event. There are possible outcomes like a catcher's interference, or reaching on an error that are not included, as well as ways to score runs after a batter has reached base such as a teammate hitting a sacrifice fly. While these are not included in the model, it is not of great concern as they are both far less common that the included variables, but also far less likely to contribute to a player scoring.
+
+After running diagnostics and stepwise regression, the final model was created, including singles, doubles, triples, home runs, league, walks, hit by pitches, stolen bases, and sacrifice bunts. By dropping games played and at bats, the multicollinearity and high VIFs seen in the first model went away. The coefficients for each variable in the new model were all statistically significant, including the intercept of -2.5. The residual standard error barely changed in the new model (6.751), and the adjusted R-squared remained very high at 92.08%. The only problem existing in this model is that of heteroskedasticity which is due to the nature of the data.
+```{r}
+model3<-lm(R~X1B+X2B+X3B+HR+lgID+BB+HBP+SB+SH, data=df);summary(model3)
+
+crPlots(model3)
+vif(model3)
+durbinWatsonTest(model3)
+influenceIndexPlot(model3, vars="Studentized")
+outlierTest(model3)
+ncvTest(model3)
+```
+
