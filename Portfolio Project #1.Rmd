@@ -1,0 +1,118 @@
+---
+title: "Portfolio Project #1"
+author: "Ben Martin"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(mosaic)
+library(data.table)
+
+rm(list=ls())
+```
+##Introduction
+
+In this study, we want to answer the question "Does a 10 microgram injection of adrenaline improve 100m running times in 20-40 year old males Islanders living in Helvig?" Adrenaline is the hormone released in the body during a "fight or flight" response. It is known to increase alertness and physical abilities when the body senses it needs to survive. Many stories say that people have accomplished incredible feats of strength or speed durng a fight or flight response, which is what led to this study. 
+
+##Methodology
+
+The purpose of this study was to see if an injection of adrenaline improved the 100m running time of participants. Due to the physical response to adrenaline, it is expected that participants will run significantly faster after receiving adrenaline. The population of interest is male Islanders between the ages of 20 and 40 living in Helvig. The response variable of interest is 100m running time, which is a continuous variable of ratio measurement. 
+
+####Measurement
+
+1. Population of interest:  Male Helvig residents between 20 and 40
+2. Response Variable(s):  100m Running time (Level of Measurement: ratio)
+3. Independent Variable(s): Received adrenaline injection yes or no, 
+4. Extraneous variables that might influence the results & how we will control for this:  We have controlled for age and gender through selection, and history/health variables should be controlled for by randomization.
+
+####Design
+
+This experiment follows the Pretest-Posttest Control Group design method, as show below:
+
+            Pre-test  Treatment     Post-test
+-------     -------- -----------   -----------
+     R           01       X             O2
+                 03                     O4
+-------     -------- -----------   -----------
+This design controls for the following threats to validity: Selection bias, regression to mean.  
+
+We could not control for these threats to validity: Testing effect, Maturation, History.  This will impact the ability to use the results in groups that are not similar to the one tested here, and similarly pretested.  
+
+In this experiment, participants ran a 100m dash and the time was recorded. Then, the treatment group received a 10 microgram injection of adrenaline, while the control group received nothing. After 5 minutes, participants ran another 100m dash and the time was recorded. 
+
+#### Sample/Randomization Method
+
+For this study, participants were chosen from the 818 residencies in Helvig. To select these participants, 40 random numbers were chosen from 818. This represented the 40 household numbers from which participants would be taken. These 40 numbers were then randomly assigned to the control or treatment group, with 20 in each group. In obtaining the participants, if nobody in the selected household was in the population of interest, or if the person refused consent, the next household was selected, and so on (ex. house number 30 doesn't have any males between 20-40, I went to house number 31 and used the male between 20-40).
+
+```{r}
+samplesize <- 40
+framesize <- 818
+numgroups <- 2
+
+set.seed(200)
+subjects <- samplesize / numgroups
+
+houses<-sample(1:framesize, samplesize, replace=F)
+
+groups <- c(rep("Control", subjects), rep("Treatment", subjects))
+
+mysample <- data.table(house = houses,
+                       group = groups)
+tally(~group, data=mysample)
+head(mysample)
+```
+
+#Data 
+
+```{r}
+df <- read.csv("Portfolio Project #1 - Sheet1.csv")
+df.treatment <- filter(df, Group == "Treatment")
+df.control <- filter(df, Group == "Control")
+
+```
+
+
+## Descriptive Statistics
+
+```{r}
+favstats(~Time | PrePost+Group, data = df)
+bwplot(~Time | PrePost+Group, data = df, layout = c(1,2))
+ggplot(df, aes(x = Group, y = Time, color = PrePost))+
+  geom_point()
+```
+As can be seen above, the mean pretest time for the treatment group was 17.48, and the post test time was 17.56, meaning the treatment group actually got slower on average. The mean pretest time for the control group was 18.02, and the mean post test time was 17.67, meaning they actually got faster on average. 
+
+
+##Results
+
+### Treatment Effect
+
+Let D1 = difference in time for treatment group
+
+H0:  D1 = 0
+Ha:   D1 < 0 (assuming Post - Pre)  
+
+```{r}
+t.test(Time ~ PrePost, paired = TRUE, data=df.treatment, alternative= "less")
+
+```
+With a p-value of 0.65, we fail to reject the null hypothesis that there is no differnece in the mean 100m dash time before and after a 10 microgram injection of adrenaline. 
+
+### Testing Effect
+Let D1 = difference in time for control group
+
+H0:  D1 = 0
+Ha:  D1 != 0
+
+```{r}
+t.test(Time~PrePost, data = df.control, paired = TRUE)
+
+```
+The p-value of 0.17 means that we fail to reject the null hypothesis that there is no differene in the mean pre and post 100m dash time in the control group. This means that there is no testing effect present. 
+
+### Discussion
+The results of this experiment show that an injection of adrenaline does not improve 100m running times in male residents of Helvig between the ages of 20-40. In both the control and treatment groups, there was no significant difference between the pre and post tests. This means that there is no testing effect present in the protocol, and there is no treatment effect from the adrenaline. While not significant, there was actually a slight improvement in the control group, and a slight decline in the treatment group which could suggest that adrenaline may actually make 100m running times worse. 
+
+### Reflection
+This experiment taught me mostly about dealing with a "failed" experiment, or one where your hypothesis is not proven correct. In preparing for this experiment, I did a one-shot case study in which I put one random Islander through the protocol. In this one-shot study, it appeared that there would be a significant effect of the adrenaline injection on 100m dash performance. It was dissappointing, although still informative to see that the effect was not present during the full experiment. The most difficult part of the experiment was in gathering my participants. I would often go to the randomized house number only to find that there was nobody in the house suitable for the study, and then when I would finally find someone in my population of interest, they would decline consent. This was frustrating, although I was still able to obtain my sample. Overall, I thought this was a good experience and informative.
