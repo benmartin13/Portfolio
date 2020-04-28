@@ -1,0 +1,167 @@
+---
+title: "Predictive Analytics Project"
+author: "Ben Martin"
+date: "11/16/2019"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Section 1: Introduction
+
+This project will be focused on predicting a MLB team's win percentage and thus season win total. To do this, the team's season runs scored and runs allowed must be predicted. These totals can be plugged into an equation called the Pythagorean Win Expectation, which will predict the team's win percentage. This percentage can be applied to the 162 game regular season to predict the team's win total. The Pythagorean Win Expectation formula is as follows: 
+Win ratio = (runs scored ^2) / (runs scored^2 + runs allowed ^)
+So if a team scored 900 runs and allowed 800, their Pythagorean expectation would be: (900^2)/(900^2+800^2). This would yield an expected win percentage of .5586 or 55.86%. Applied to the 162 game season, the team would be expected to win 90 games. 
+
+In order to make this prediction, a series of models will be created to predict runs scored for offensive players, and runs allowed for pitchers. These predictions will then be applied to a team's roster in order to predict that team's total runs scored and allowed. The data for this will come from Sean Lahman's Baseball Database. This is a database containing 33 data sets with league level, team level, and individual level statistical data for every team and player in Major League Baseball history dating back to 1873, updated through the completed 2016 season. The primary data sets being used will be the 'Batting' and 'Pitching' and 'Master' sets. These will contain both general information about each player as well as statistical performance data in order to predict their runs scored or allowed. 
+
+The practical importance of predicting runs scored or allowed for a player and a team is paramount. This allows a team to have a valid expectation of their performance for an upcoming season, as well as evaluate their ceiling and their needed areas of improvement. It also allows for player evaluation to predict the value they will provide to a team. Combining these two things is where the true value lies. A team will have the ability to predict their performance and then look at how this could change if they were to add a player to their roster. Essentially, this project aims to take the subjective process that teams have always used to evaluate themselves and potential players, and use data analysis to make this process based in objective fact. 
+
+##Section 2: Pre Processing
+
+The first step in pre-processing this data is to combine the master table with the pitching and batting tables respectively. The master table contains biographic data like birth year, height, weight, and handedness that could be helpful in predicting a players performance. The batting and pitching tables contain statistical information that is obviously pivotal for predicting performance. In combining these tables, we create a master batting and master pitching table with all of the necessary predictors. Additionally, an 'age' variable was created by subtracting the players birth year from the current year. 
+
+Next, the data was subsetted based on year, and the number of plate appearances or innings pitched a player had. Since the database contains data dating all the way back to the 1870s, obviously it needed to be subsetted based on year. The models should be created using data that reflects the current state of the game as it has changed a lot over the years, and with current players so that predictions can be made for their next season's performance. To accomplish this, the data was filtered to only include data from seasons after 2010. This provides a data set that is still large enough to predict from (about 4000 observations), but still only contains current data. Next, the tables were filtered to only contain batters with over 30 plate appearances and pitchers with over 9 outs recorded. This eliminates data from players that barely played at all that might skew predictions, as well as the rare cases of batters pitching in blowout games. Finally, the data was subsetted to include only the biographical and statistical information that is expected to have predictive value for player performance. 
+
+```{r}
+library(Lahman)
+library(dplyr)
+batting_advanced <- Batting %>%
+  battingStats(idvars = c("playerID", "yearID", "stint", "teamID", "lgID"), 
+               cbind = TRUE)
+
+master_hitter <- left_join(Master, batting_advanced)
+
+Hitters <- master_hitter %>%
+  filter(yearID > 2010, PA >30)%>%
+  mutate(birthyear = ifelse(birthMonth >=7, 
+                            birthYear + 1, birthYear))%>%
+  mutate(Age = yearID - birthyear)
+
+master_pitcher <- left_join(Master, Pitching)
+
+Pitchers<- master_pitcher%>%
+  filter(yearID > 2010, IPouts > 9)%>%
+  mutate(birthyear = ifelse(birthMonth >=7, 
+                            birthYear + 1, birthYear))%>%
+  mutate(Age = yearID - birthyear)
+
+newhit <- Hitters[, c(1, 17:20, 27:56)]
+
+newpit <- Pitchers[, c(1, 17:20, 27:57)]
+```
+
+##Section 3: EDA
+The first step in the EDA was to look at the descriptive statistics and distributions of the outcome variables (runs for hitters and runs allowed for pitchers). Interestingly but not surprisingly, the two had very similar distributions since each run scored for a hitter equates to a run allowed for the pitcher. The exact statistics and a boxplot of each variable can be seen below. What we see in general is most values in the 15-40 range with the median around 20, and a considerable right skew. Looking at the quantile plots, we see that the data is not normally distributed at any point. This non-normal distribution suggests that a standard regression model may not be effective at predicting. Thus, the focus will be placed on other methods of predictive modeling. 
+
+The next step of EDA was to look at boxplots of runs and runs allowed distributions based on the categorical variables available. Namely, batting handedness, throwing handedness, and league for runs scored, and throwing handedness and league for runs allowed. The only possible difference seen in these boxplots is runs scored based on league. It appears that batters in the American League have a slightly higher median runs scored, likely due to the presence of the designated hitter. The other categorical variables show no differences in median runs scored or allowed and thus will not be focused on in predicting outcomes. 
+
+The final step of the EDA was to create a scatterplot matrix of the two outcome variables based on various continuous predictors that are expected to have a possible impact. This will show the correlation between the outcome variable and each predictor, as well as the correlation of the predictors to each other. Looking at the plot matrix for runs scored, it would seem that hits, home runs, and OPS could have predictive value while height, weight and age show little to no correlation with runs scored. With the runs allowed plot matrix, we also see no correlation with age, little to no correlation with height and weight, a slight correlation with opponent batting average, and a strong correlation with strikeouts and home runs allowed. The variables that show possible correlation will be focused on most in predicting the outcome variables, however other variables will not be ruled out as far as predictve value just yet, since a lack of linear correlation does not necessarily mean they hold no predictive value. 
+
+```{r}
+library(pastecs)
+round(stat.desc(newhit$R,basic=F,norm=TRUE),digits=2)
+
+boxplot(newhit$R,notch=T,horizontal=T,xlab="Runs",main="Runs Scored")
+
+round(stat.desc(newpit$R,basic=F,norm=TRUE),digits=2)
+
+boxplot(newpit$R,notch=T,horizontal=T,xlab="Runs",main="Runs Allowed")
+
+library(car)
+with(newhit, qqPlot(R))
+
+with(newpit, qqPlot(R))
+
+Boxplot(newhit$R ~ newhit$bats)
+
+Boxplot(newhit$R ~ newhit$throws)
+
+Boxplot(newhit$R ~ newhit$lgID)
+
+Boxplot(newpit$R ~ newpit$throws)
+
+Boxplot(newpit$R ~ newpit$lgID)
+
+matrix1 <- scatterplotMatrix(~R+ Age +height + weight, data = newhit)
+
+matrix2<- scatterplotMatrix(~R + Age + height + weight, data = newpit)
+
+```
+
+##Section 4: Model Fitting and Analysis
+The first step in the model fitting process was partitioning the data. To do this, a train and test data set was created for both the hitters and pitchers data set that was previously subsetted. These were broken down so that the training set contained a randomized 60% of the observations of the total set, with the test set containing the other 40%. The models are fitted using the training set, and then the predictive accuracy of the model is found by using it to predict from the test set. The 60%/40% split was chosen in order to allow for a large enough sample size in both the test and train sets. With the original data sets being around 4000 observations, this split provides a large enough training set for the model to accurately predict, as well as a large enough testing set to test the accuracy of the model across a number of observations. 
+
+```{r}
+##Hitters
+library(caret)
+new=createDataPartition(y=newhit$R,p=.6,list=FALSE)
+train=newhit[new,]
+test=newhit[-new,]
+tc <- trainControl(method="cv", number = 6)
+
+##Pitchers
+new2=createDataPartition(y=newpit$R,p=.6,list=FALSE)
+train2=newpit[new2,]
+test2=newpit[-new2,]
+tc <- trainControl(method="cv", number = 6)
+```
+
+
+When starting the actual model fitting process, a variety of different types of models were created to predict runs for hitters and runs allowed for pitchers. These model types included OLS regression, cubic and natural splines, loess, kNN regression, standard, bagged, and boosted decision trees  After a preliminary set of models was created for each, the RMSE was created and compared to see the predictive accuracy of each model. This process showed that for runs scored, an OLS regression model would be the best option, while for runs scored, a loess model would be best. After identifying these models as the best options, the next step was altering the tuning parameters in order to find the most accurate model for prediction. 
+
+As far as the OLS regression model for predicting runs scored, the main tuning parameter is applying a polynomial relationship to continuous predictor variables. This means rather than applying a linear relationship between runs scored and the predictors, a cubic, quartic, or higher order relationship. After experimenting with this parameter, it was found that the most accurate predictive model had a linear relationship with every variable besides hits, which had a 4th order relationship. In assessing the model's fit, the most important statistic to look at was root mean square error (RMSE). This is the average residual, or average distance of an observed value from the predicted value, which tells us how accurate the predictions are on average. After tuning the model, the RMSE of the final model was 6.516. 
+
+```{r}
+##Runs Scored OLS Model
+fit2 <- lm(R~bats+throws+lgID+poly(H,4)+OPS+HR+Age+weight+height, data = train) ##tried 2nd order, wasnt better
+RMSEfit2<-sqrt(mean((predict(fit2,newdata=test)-test$R)^2))
+RMSEfit2
+```
+
+
+For the loess model, the tuning parameters were the span, and which variables were chosen to model from since a loess model can only use up to 4 predictors. After experimenting with predictors, it was found that the most accurate loess model used strikeouts, homeruns, and opponent's batting average to predict runs allowed. The span represents what percent of the observations in the data is included in the neighborhood of each predictive value. After tuning this parameter, it was found that a span of .3 (30% of observations in each neighborhood) yielded the most accurate predictive model. Root mean square error was used to evaluate this model's fit as well, and the model yielded a final RMSE of 6.910. 
+```{r}
+##Runs Allowed Loess Model
+loess <- loess(R~SO+BAOpp+HR, data=train2, span = .3)
+summary(loess)
+
+RMSEloess <- sqrt(mean((predict(loess, newdata=test2)-test2$R)^2))
+RMSEloess
+```
+
+
+After creating these models, the last and most important step was to test them by using them to predict. These models were used to predict the performance of the 2016 Minnesota Twins. This team was chosen because the data is updated through the 2016 season, so this is the most recent year available to predict and compare the models' performance, and the Twins' triple-A affiliate is the Red Wings, who are based in Rochester. The OLS model for runs scored predicted the 2016 Twins to score 721.36 runs, and the loess model predicted them to allow 884.18 runs. Using the pythagorean win expectation formula, these models predicted the Twins to have a win percentage of .3996 which would yield a record of 65-97. The actual 2016 Minnesota Twins scored 722 runs while allowing 889, for a pythagorean W-L of 66-92. This means that the models gave a very accurate prediction of the 2016 Twins pythagorean win expectation. Of course, the pythagorean W-L is not always perfectly accurate in predicting the team's record, and the 2016 Twins had a record of 59-103. This is due to a lot of random chance and the team losing a lot of close games, however the innacuracy lies in the predictive ability of pythagorean W-L, not in the predictive ability of the models. 
+
+```{r}
+##Predictions
+predH <- newhit%>%
+  filter(teamID =="MIN", yearID == "2016")
+
+predH$predR=predict(fit2, predH)
+
+sum(predH$predR)
+
+predP <- newpit%>%
+  filter(teamID =="MIN", yearID == "2016")
+
+predP$predR=predict(loess, predP)
+
+sum(predP$predR)
+
+```
+
+
+##Section 5: Summary
+Overall, I was pleased with the performance of these predictive models. They showed good fit statistics for predicting runs scored and runs allowed, and were very accurate in predicting the pythagorean win expectation of a team, which is exactly what they were meant to do. Of course not every prediction would be as accurate as the specific case of the 2016 Twins, however this shows the models' capabilities. The predictive ability of these models could be very important to an organization. The ability to plug different players into a theoretical roster and see how the team's expected performance would be different is very valuable. 
+
+The biggest limitation of these models was the tradeoff between accuracy and overfitting. Statistics are so uniform and accurately measured and recorded in baseball that the data collection and measurement of the variables used is not a concern. The concern with these models lies in choosing which variables to predict from. Of course a very accurate model could be created by including all of the many variables provided by the database. However, this becomes very bulky and difficult to tune as well as requiring a large amount of data in order to predict. The variables chosen for these models mitigated this issue by only needing a reasonable number of them and yielded sufficiently accurate predictions. That being said, these models also used publicly available data to predict. If proprietary data were available from an organization, the models might be able to be more streamlined and more accurate. For example, organizations have databases of scouting information and advanced metrics that are not publicly available (things like bat speed, pitch spin rates, etc) that could be very valuable in predicting if they were readily available. 
+
+
+
+
+
