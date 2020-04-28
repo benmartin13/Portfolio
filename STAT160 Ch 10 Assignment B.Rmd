@@ -1,0 +1,31 @@
+---
+title: "Ch 10 Assignment B"
+author: "Ben Martin"
+date: "11/29/2018"
+output: word_document
+---
+
+```{r}
+bmi =read.delim("~/bmi.txt")
+model <- lm(bmi~Glucose, data=bmi)
+summary(model)$coefficients; summary(model)$r.squared
+```
+1. The regression coefficient for this model is .34, which means that for each 1 mg/dL increase in blood glucose, we preidct a .34 unit increase in BMI. The R squared from the model is .215, which means that this relationship explains 21.5% of the variation in BMI in the data set. 
+
+```{r}
+N=1000
+beta=numeric(N) 
+for (i in 1:N) {
+  samp <- bmi[sample(nrow(bmi),38,replace=T),]
+  model <- lm(bmi~Glucose,data=samp)
+  beta[i] <- summary(model)$coefficients[2,1]
+}
+hist(beta,main="probability distribution of beta under Ha")  
+quantile(beta,c(0.025,0.975))
+```
+2.  The 95% CI for this relationship means that we can be 95% sure that the true correlation between BMI and blood glucose is between .109 and .553. This CI allows us to reject the null hypothesis, because the lower bound of the CI is not within .05 (alpha) of 0 (null).
+
+```{r}
+predict(model, data.frame(Glucose=100))
+```
+This model predicts someone with a blood glucose of 100 mg/dL to have a BMI of 37.11.
