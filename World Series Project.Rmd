@@ -1,0 +1,41 @@
+---
+title: "World Series Project"
+author: "Ben Martin"
+date: "4/28/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+set.seed(1)
+N <- 10000
+probs <- c(8/74, 6/74, rep(4/74, 6), rep(2/74, 14), rep(1/74, 8)) #Probabilities of winning for next season
+drought <- numeric()
+for(i in 1:N) {
+  num.moves <- 106
+  current.season <- sample(c(1:30), 30, replace = F) #creates first season rankings (1907 season)
+  current.winner <- current.season[1] #creates the first winner (1907 winner)
+  next.winner <- 0
+  winners <- numeric(num.moves)
+  for (j in 1:num.moves) {
+    next.season <- sample(current.season, 30, replace = F, prob = probs) #samples from previous season order using probabilities
+    next.winner <- next.season[1] #new winner
+    winners[j] <- next.winner  #keeps track of the 106 winners
+    current.season <- next.season 
+    current.winner <- next.winner
+  }
+  Wins <- numeric(30)
+  for (k in 1:30) {
+    Wins[k] <- length(which(winners == k)) #count how many world series each of the 30 teams won in 106 years
+  }
+  drought[i] <- length(which(Wins == 0)) #count how many times a team went on a 106 year drought
+}
+
+pdrought<- length(which(drought!=0)) / length(drought) #probability of drought
+pdrought
+```
+
+For this simulation, we created an initial vector of 30 numbers in a random order. This represents the ranking of how the 30 teams finished from the season prior to the simulation. We then created a vector of probabilities to represent the fact that the better teams from the previous season are more likely to win the World Series the next year. We chose to have the previous winner be 4 times as likely to win than an average team, the previous second place team to be 3 times as likely, the third through eighth place teams to be twice as likely, and the bottom 8 teams to be half as likely. We then sampled from the initial ranking using these probabilities to create the new ranking, kept track of the winner, and repeated this 106 times to represent the 106 year drought in question. We repeated this process 10,000 times, keeping track of how many times a team went all 106 years without ever winning the World Seires, and found a .7196 probability of such a drought occurring. This tells us that the Chicago Cubs were not actually just really bad, but rather they were the unlucky recipients of what turns out to be a likely outcome in 106 seasons. 
